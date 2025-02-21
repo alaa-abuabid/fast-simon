@@ -27,13 +27,14 @@ def delete_data(name):
     key = client.key(MAIN_DATA_KIND, name)
     client.delete(key)
 
-def append_command(command, name, value, kind):
+def append_command(command, name, old_value, new_value, kind):
     key = client.key(kind)
     entity = datastore.Entity(key=key)
     entity.update({
         'command': command,
         'name': name,
-        'value': value,
+        'old_value': old_value,
+        'new_value': new_value,
         'timestamp': datetime.utcnow()
     })
     client.put(entity)
@@ -45,8 +46,8 @@ def pop_command(kind):
     if results:
         entity = results[0]
         client.delete(entity.key)
-        return entity['command'], entity['name'], entity['value']
-    return None, None, None
+        return entity['command'], entity['name'], entity['old_value'], entity['new_value']
+    return None, None, None, None
 
 @app.route('/set')
 def set_variable():
@@ -54,10 +55,8 @@ def set_variable():
     value = request.args.get('value')
     if is_valid_parameter(name) and is_valid_parameter(value):
         previous_entity = get_data(name)
-        if previous_entity:
-            append_command('SET', name, previous_entity['value'], COMMAND_HISTORY_KIND)
-        else:
-            append_command('SET', name, None, COMMAND_HISTORY_KIND)
+        old_value = previous_entity['value'] if previous_entity else None
+        append_command('SET', name, old_value, value, COMMAND_HISTORY_KIND)
         set_data(name, value)
         return f'{name} = {value}'
     else:
@@ -78,7 +77,7 @@ def unset_variable():
     if is_valid_parameter(name):
         entity = get_data(name)
         if entity:
-            append_command('UNSET', name, entity['value'], COMMAND_HISTORY_KIND)
+            append_command('UNSET', name, entity['value'], None, COMMAND_HISTORY_KIND)
             delete_data(name)
             return f'{name} = None'
     else:
@@ -97,37 +96,36 @@ def numequalto():
 
 @app.route('/undo')
 def undo():
-    command, name, value = pop_command(COMMAND_HISTORY_KIND)
+    command, name, old_value, new_value = pop_command(COMMAND_HISTORY_KIND)
     if command:
-        previous_entity = get_data(name)
         if command == 'SET':
-            if value is None:
+            if old_value is None:
                 delete_data(name)
-                append_command('UNSET', name, previous_entity['value'], UNDO_HISTORY_KIND)# here!!!!
+                append_command('SET', name, old_value, new_value, UNDO_HISTORY_KIND)
                 return f'{name} = None'
             else:
-                set_data(name, value)
-                append_command('SET', name, previous_entity['value'], UNDO_HISTORY_KIND)
-                return f'{name} = {value}'
+                set_data(name, old_value)
+                append_command('SET', name, old_value, new_value, UNDO_HISTORY_KIND)
+                return f'{name} = {old_value}'
         elif command == 'UNSET':
-            set_data(name, value)
-            append_command('SET', name, None, UNDO_HISTORY_KIND)
-            return f'{name} = {value}'
+            set_data(name, old_value)
+            append_command('UNSET', name, old_value, new_value, UNDO_HISTORY_KIND)
+            return f'{name} = {old_value}'
     else:
         return "NO COMMANDS"
 
 @app.route('/redo')
 def redo():
-    command, name, value = pop_command(UNDO_HISTORY_KIND)
+    command, name, old_value, new_value = pop_command(UNDO_HISTORY_KIND)
     if command:
         if command == 'SET':
-            set_data(name, value)
-            append_command('SET', name, value, COMMAND_HISTORY_KIND)
-            return f'{name} = {value}'
+            set_data(name, new_value)
+            append_command('SET', name, old_value, new_value, COMMAND_HISTORY_KIND)
+            return f'{name} = {old_value}'
         elif command == 'UNSET':
             delete_data(name)
-            append_command('UNSET', name, None, COMMAND_HISTORY_KIND)
-            return f'{name} = None'
+            append_command('UNSET', name, old_value, new_value, COMMAND_HISTORY_KIND)
+            return f'{name} = {old_value}'
     else:
         return "NO COMMANDS"
 
