@@ -49,11 +49,17 @@ def pop_command(kind):
         return entity['command'], entity['name'], entity['old_value'], entity['new_value']
     return None, None, None, None
 
+def discard_data_by_kind(kind):
+    query = client.query(kind=kind)
+    keys = [entity.key for entity in query.fetch()]
+    client.delete_multi(keys)
+
 @app.route('/set')
 def set_variable():
     name = request.args.get('name')
     value = request.args.get('value')
     if is_valid_parameter(name) and is_valid_parameter(value):
+        discard_data_by_kind(UNDO_HISTORY_KIND) # discard undo stack
         previous_entity = get_data(name)
         old_value = previous_entity['value'] if previous_entity else None
         append_command('SET', name, old_value, value, COMMAND_HISTORY_KIND)
@@ -66,6 +72,7 @@ def set_variable():
 def get_variable():
     name = request.args.get('name')
     if is_valid_parameter(name):
+        # discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack
         entity = get_data(name)
         return entity['value'] if entity else 'None'
     else:
@@ -75,6 +82,7 @@ def get_variable():
 def unset_variable():
     name = request.args.get('name')
     if is_valid_parameter(name):
+        discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack
         entity = get_data(name)
         if entity:
             append_command('UNSET', name, entity['value'], None, COMMAND_HISTORY_KIND)
@@ -87,6 +95,7 @@ def unset_variable():
 def numequalto():
     value = request.args.get('value')
     if is_valid_parameter(value):
+        # discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack
         query = client.query(kind=MAIN_DATA_KIND)
         query.add_filter('value', '=', value)
         results = list(query.fetch())
@@ -121,25 +130,19 @@ def redo():
         if command == 'SET':
             set_data(name, new_value)
             append_command('SET', name, old_value, new_value, COMMAND_HISTORY_KIND)
-            return f'{name} = {old_value}'
+            return f'{name} = {new_value}'
         elif command == 'UNSET':
             delete_data(name)
             append_command('UNSET', name, old_value, new_value, COMMAND_HISTORY_KIND)
-            return f'{name} = {old_value}'
+            return f'{name} = None'
     else:
         return "NO COMMANDS"
 
 @app.route('/end')
 def end():
-    query = client.query(kind=MAIN_DATA_KIND)
-    keys = [entity.key for entity in query.fetch()]
-    client.delete_multi(keys)
-    query = client.query(kind=COMMAND_HISTORY_KIND)
-    keys = [entity.key for entity in query.fetch()]
-    client.delete_multi(keys)
-    query = client.query(kind=UNDO_HISTORY_KIND)
-    keys = [entity.key for entity in query.fetch()]
-    client.delete_multi(keys)
+    discard_data_by_kind(MAIN_DATA_KIND)
+    discard_data_by_kind(COMMAND_HISTORY_KIND)
+    discard_data_by_kind(UNDO_HISTORY_KIND)
     return "CLEANED"
 
 if __name__ == '__main__':
