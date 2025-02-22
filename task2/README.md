@@ -54,13 +54,15 @@ URL: https://task2-dot-charged-state-451616-h7.ew.r.appspot.com/audit?name={name
 Description: Returns the history of changes (timestamp and value) for the specified variable {name}.
 
 Example:
-Request: /audit?name=variable1
+Request: /audit?name=variableName
 
 Response:
 
-variable variable1 audit
+variable variableName audit
 1. 2025-02-22 10:30 | 10
 2. 2025-02-22 10:40 | 20
+3. 2025-02-22 10:50 | None
+4. 2025-02-22 10:51 | 11
 
 How the Audit Feature Improves the App
 The Audit feature enhances the app by providing a transparent history of variable changes, including timestamps, which 
