@@ -72,7 +72,7 @@ def set_variable():
 def get_variable():
     name = request.args.get('name')
     if is_valid_parameter(name):
-        # discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack
+        # discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack - based on the test this should remove the redo history
         entity = get_data(name)
         return entity['value'] if entity else 'None'
     else:
@@ -95,7 +95,7 @@ def unset_variable():
 def numequalto():
     value = request.args.get('value')
     if is_valid_parameter(value):
-        # discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack
+        # discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack - based on the test this should remove the redo history
         query = client.query(kind=MAIN_DATA_KIND)
         query.add_filter('value', '=', value)
         results = list(query.fetch())
