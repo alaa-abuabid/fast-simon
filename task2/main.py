@@ -7,8 +7,9 @@ client = datastore.Client()
 
 ERROR_RESPONSE = "Invalid Parameter"
 MAIN_DATA_KIND = "task2"
-COMMAND_HISTORY_KIND = "CommandHistory"
-UNDO_HISTORY_KIND = "UndoHistory"
+UNDO_STACK_KIND = "undoStack"
+REDO_STACK_KIND = "redoStack"
+VARIABLE_HISTORY_KIND = "VariableHistory"
 
 def is_valid_parameter(param):
     return isinstance(param, str) and param.strip() and " " not in param
@@ -18,6 +19,7 @@ def set_data(name, value):
     entity = datastore.Entity(key=key)
     entity.update({'value': value})
     client.put(entity)
+    append_variable_history(name, value)
 
 def get_data(name):
     key = client.key(MAIN_DATA_KIND, name)
@@ -26,6 +28,7 @@ def get_data(name):
 def delete_data(name):
     key = client.key(MAIN_DATA_KIND, name)
     client.delete(key)
+    append_variable_history(name, None)
 
 def append_command(command, name, old_value, new_value, kind):
     key = client.key(kind)
@@ -35,6 +38,16 @@ def append_command(command, name, old_value, new_value, kind):
         'name': name,
         'old_value': old_value,
         'new_value': new_value,
+        'timestamp': datetime.utcnow()
+    })
+    client.put(entity)
+
+def append_variable_history(name, value):
+    key = client.key(VARIABLE_HISTORY_KIND)
+    entity = datastore.Entity(key=key)
+    entity.update({
+        'name': name,
+        'value': value,
         'timestamp': datetime.utcnow()
     })
     client.put(entity)
@@ -59,10 +72,10 @@ def set_variable():
     name = request.args.get('name')
     value = request.args.get('value')
     if is_valid_parameter(name) and is_valid_parameter(value):
-        discard_data_by_kind(UNDO_HISTORY_KIND) # discard undo stack
+        discard_data_by_kind(REDO_STACK_KIND) # discard undo stack
         previous_entity = get_data(name)
         old_value = previous_entity['value'] if previous_entity else None
-        append_command('SET', name, old_value, value, COMMAND_HISTORY_KIND)
+        append_command('SET', name, old_value, value, UNDO_STACK_KIND)
         set_data(name, value)
         return f'{name} = {value}'
     else:
@@ -74,6 +87,7 @@ def get_variable():
     if is_valid_parameter(name):
         # discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack - based on the test this should remove the redo history
         entity = get_data(name)
+        append_command('GET', name, None, entity['value'] if entity else None, UNDO_STACK_KIND)
         return entity['value'] if entity else 'None'
     else:
         return ERROR_RESPONSE
@@ -82,12 +96,14 @@ def get_variable():
 def unset_variable():
     name = request.args.get('name')
     if is_valid_parameter(name):
-        discard_data_by_kind(UNDO_HISTORY_KIND)  # discard undo stack
+        discard_data_by_kind(REDO_STACK_KIND)  # discard undo stack
         entity = get_data(name)
         if entity:
-            append_command('UNSET', name, entity['value'], None, COMMAND_HISTORY_KIND)
+            append_command('UNSET', name, entity['value'], None, UNDO_STACK_KIND)
             delete_data(name)
             return f'{name} = None'
+        else:
+            return "not found"
     else:
         return ERROR_RESPONSE
 
@@ -99,50 +115,73 @@ def numequalto():
         query = client.query(kind=MAIN_DATA_KIND)
         query.add_filter('value', '=', value)
         results = list(query.fetch())
+        append_command('NUMEQUALTO', None, None, value, UNDO_STACK_KIND)
         return str(len(results))
     else:
         return ERROR_RESPONSE
 
 @app.route('/undo')
 def undo():
-    command, name, old_value, new_value = pop_command(COMMAND_HISTORY_KIND)
+    command, name, old_value, new_value = pop_command(UNDO_STACK_KIND)
     if command:
         if command == 'SET':
             if old_value is None:
                 delete_data(name)
-                append_command('SET', name, old_value, new_value, UNDO_HISTORY_KIND)
+                append_command('SET', name, old_value, new_value, REDO_STACK_KIND)
                 return f'{name} = None'
             else:
                 set_data(name, old_value)
-                append_command('SET', name, old_value, new_value, UNDO_HISTORY_KIND)
+                append_command('SET', name, old_value, new_value, REDO_STACK_KIND)
                 return f'{name} = {old_value}'
         elif command == 'UNSET':
             set_data(name, old_value)
-            append_command('UNSET', name, old_value, new_value, UNDO_HISTORY_KIND)
+            append_command('UNSET', name, old_value, new_value, REDO_STACK_KIND)
             return f'{name} = {old_value}'
     else:
         return "NO COMMANDS"
 
 @app.route('/redo')
 def redo():
-    command, name, old_value, new_value = pop_command(UNDO_HISTORY_KIND)
+    command, name, old_value, new_value = pop_command(REDO_STACK_KIND)
     if command:
         if command == 'SET':
             set_data(name, new_value)
-            append_command('SET', name, old_value, new_value, COMMAND_HISTORY_KIND)
+            append_command('SET', name, old_value, new_value, UNDO_STACK_KIND)
             return f'{name} = {new_value}'
         elif command == 'UNSET':
             delete_data(name)
-            append_command('UNSET', name, old_value, new_value, COMMAND_HISTORY_KIND)
+            append_command('UNSET', name, old_value, new_value, UNDO_STACK_KIND)
             return f'{name} = None'
     else:
         return "NO COMMANDS"
 
+@app.route('/audit')
+def variable_history():
+    name = request.args.get('name')
+    if is_valid_parameter(name):
+        query = client.query(kind=VARIABLE_HISTORY_KIND)
+        query.add_filter('name', '=', name)
+        query.order = ['-timestamp']
+        results = list(query.fetch())
+
+        if results:
+            history = [f"timestamp | value"]
+            history += [
+                f"{datetime.utcfromtimestamp(entity['timestamp'].timestamp()).strftime('%Y-%m-%d %H:%M')} | {entity['value'] if entity['value'] is not None else 'None'}"
+                for entity in results
+            ]
+            return f"variable {name} audit\n" + "\n".join(history)
+        else:
+            return f"variable {name} audit\nNo history found"
+    else:
+        return ERROR_RESPONSE
+
 @app.route('/end')
 def end():
     discard_data_by_kind(MAIN_DATA_KIND)
-    discard_data_by_kind(COMMAND_HISTORY_KIND)
-    discard_data_by_kind(UNDO_HISTORY_KIND)
+    discard_data_by_kind(UNDO_STACK_KIND)
+    discard_data_by_kind(REDO_STACK_KIND)
+    discard_data_by_kind(VARIABLE_HISTORY_KIND)
     return "CLEANED"
 
 if __name__ == '__main__':

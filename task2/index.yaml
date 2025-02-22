@@ -1,0 +1,6 @@
+indexes:
+  - kind: VariableHistory
+    properties:
+      - name: name
+      - name: timestamp
+        direction: desc
