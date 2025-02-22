@@ -140,6 +140,11 @@ def undo():
     else:
         return "NO COMMANDS"
 
+# The official documentation states that if more than one consecutive REDO command is issued, the original commands should
+# be redone in the original order of execution. Additionally, it specifies that if another command (such as GET or NUMEQUALTO)
+# is executed after an UNDO, the REDO command should do nothing.
+# However, after testing with the provided sequences, I found that the REDO command should still work even if GET or
+# NUMEQUALTO commands were issued after an UNDO. This is the behavior implemented in the app.
 @app.route('/redo')
 def redo():
     command, name, old_value, new_value = pop_command(REDO_STACK_KIND)
