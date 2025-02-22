@@ -85,9 +85,8 @@ def set_variable():
 def get_variable():
     name = request.args.get('name')
     if is_valid_parameter(name):
-        # discard_data_by_kind(REDO_STACK_KIND)  # discard redo stack - based on the test this should remove the redo history
+        # discard_data_by_kind(REDO_STACK_KIND)  # discard redo stack - based on the test this should not remove the redo history
         entity = get_data(name)
-        append_command('GET', name, None, entity['value'] if entity else None, UNDO_STACK_KIND)
         return entity['value'] if entity else 'None'
     else:
         return ERROR_RESPONSE
@@ -111,11 +110,10 @@ def unset_variable():
 def numequalto():
     value = request.args.get('value')
     if is_valid_parameter(value):
-        # discard_data_by_kind(REDO_STACK_KIND)  # discard redo stack - based on the test this should remove the redo history
+        # discard_data_by_kind(REDO_STACK_KIND)  # discard redo stack - based on the test this should not remove the redo history
         query = client.query(kind=MAIN_DATA_KIND)
         query.add_filter('value', '=', value)
         results = list(query.fetch())
-        append_command('NUMEQUALTO', None, None, value, UNDO_STACK_KIND)
         return str(len(results))
     else:
         return ERROR_RESPONSE
