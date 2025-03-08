@@ -14,14 +14,14 @@ The script performs the following tasks:
 
 ## How It Does It
 
-1. **SQL Query Execution:** The script runs an SQL query that groups user search queries into 1000 evenly distributed groups using a hash function. For each query, it finds related queries that appear in the same user sessions and removes duplicates.
+1. **SQL Query Execution:** The script runs an SQL query that groups user search queries into 256 distributed groups using a SHA256 function. For each query, it finds related queries that appear in the same user sessions and removes duplicates.
 2. **Processing Results:** The results of the SQL query are processed to create a dictionary (queries_dict) where each key is an original query and the value is an array of related queries.
 3. **Storing in Datastore:** The processed data is stored in Google Datastore as entities of kind RelatedQueriesGroup. Each entity contains a group_id and a queries_dict.
 
 ## Why This Approach
 
 1. **Hashing for Grouping:**
-* Scalability: Hashing distributes queries evenly across groups, ensuring no single group becomes too large. This makes the system scalable and capable of handling large datasets.
+* Scalability: Hashing distributes queries across groups, ensuring no single group becomes too large. This makes the system scalable and capable of handling large datasets.
 * Performance: Grouping queries reduces the number of Datastore entities, improving read/write performance and reducing latency.
 * Space Optimization: Using group_id to group related queries helps minimize the number of entities stored in Datastore, optimizing storage space and reducing costs.
 
