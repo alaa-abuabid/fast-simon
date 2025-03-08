@@ -1,22 +1,21 @@
 from flask import Flask, request, jsonify
 from google.cloud import datastore
-from google.cloud import memcache
 import logging
+import farmhash
+
 
 app = Flask(__name__)
 datastore_client = datastore.Client()
-memcache_client = memcache.Client()
-
-TTL = 300  # 5 minutes in seconds
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Define Datastore kind
 RELATED_QUERIES_KIND = "RelatedQueries"
 
 def get_group_id(query):
-    return abs(hash(query)) % 1000  # Assuming 1000 groups
+    hash_value = farmhash.fingerprint64(query)
+    group_id = abs(hash_value) % 1000
+    return group_id
 
 def get_related_queries_group(group_id):
     try:
@@ -29,29 +28,12 @@ def get_related_queries_group(group_id):
 
 def get_related_queries(query):
     group_id = get_group_id(query)
-
-    # Check Memcache first
-    try:
-        cached_result = memcache_client.get(query)
-        if cached_result:
-            logging.info(f"Cache hit for query: {query}")
-            return cached_result
-    except Exception as e:
-        logging.error(f"Error accessing Memcache: {e}")
-
-    # Fetch from Datastore if not in Memcache
+    # Fetch from Datastore
     group = get_related_queries_group(group_id)
     if group:
         queries_dict = group.get('queries_dict')
         if queries_dict:
             related_queries = queries_dict.get(query, [])
-
-            # Cache the result in Memcache
-            try:
-                memcache_client.set(query, related_queries, TTL)
-                logging.info(f"Cached result for query: {query}")
-            except Exception as e:
-                logging.error(f"Error setting Memcache: {e}")
 
             return related_queries
     return []
