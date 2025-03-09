@@ -3,9 +3,9 @@ from locust import HttpUser, TaskSet, task, between
 class UserBehavior(TaskSet):
     @task(1)
     def ping1(self):
-        (self.client.get("/ping")
+        self.client.get("/ping")
 
-    @task(1))
+    @task(1)
     def ping2(self):
         self.client.get("/ping")
 

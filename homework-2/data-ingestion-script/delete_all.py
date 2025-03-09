@@ -1,7 +1,6 @@
 from google.cloud import datastore
 import logging
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -11,22 +10,16 @@ logging.basicConfig(
     ]
 )
 
-# Set your Google Cloud project ID
 project_id = 'charged-state-451616-h7'
-
-# Initialize Datastore client with the project ID
 datastore_client = datastore.Client(project=project_id)
-
-# Specify the kind of entities to delete
 ENTITY_KIND = "RelatedQueries"
 
 def delete_all_entities():
     try:
-        # Query to fetch all entities of the specified kind
         query = datastore_client.query(kind=ENTITY_KIND)
         entities = query.fetch()
 
-        # Delete each entity
+        # delete each entity
         for entity in entities:
             datastore_client.delete(entity.key)
             logging.info(f"Deleted entity with key: {entity.key}")

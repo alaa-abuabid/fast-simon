@@ -1,9 +1,8 @@
 from google.cloud import bigquery, datastore
 import logging
 
-RELATED_QUERIES_KIND = "RelatedQueries"
 
-# Configure logging
+# configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -13,10 +12,8 @@ logging.basicConfig(
     ]
 )
 
-# Set your Google Cloud project ID
+RELATED_QUERIES_KIND = "RelatedQueries"
 project_id = 'charged-state-451616-h7'
-
-# Initialize BigQuery and Datastore clients with the project ID
 bigquery_client = bigquery.Client(project=project_id)
 datastore_client = datastore.Client(project=project_id)
 
@@ -45,16 +42,15 @@ GROUP BY group_id
 
 def run_query_and_update_datastore():
     try:
-        # Run the query
+        # run the query
         query_job = bigquery_client.query(query)
         results = query_job.result()
 
-        # Process and log the results
         for row in results:
             group_id = row['group_id']
             queries_dict = {entry['query']: entry['related_queries'] for entry in row['queries']}
 
-            # Create a Datastore entity
+            # create a datastore entity
             entity_key = datastore_client.key(RELATED_QUERIES_KIND, str(group_id))
             entity = datastore.Entity(key=entity_key, exclude_from_indexes=['queries_dict'])
             entity.update({
@@ -62,10 +58,9 @@ def run_query_and_update_datastore():
                 'queries_dict': queries_dict
             })
 
-            # Store the entity in Datastore
+            # store the entity in datastore
             datastore_client.put(entity)
 
-            # Log the group ID and dictionary length
             logging.info(f"Stored entity with group_id={group_id} and dict_length={len(queries_dict)}")
 
         logging.info("Data ingestion completed successfully.")

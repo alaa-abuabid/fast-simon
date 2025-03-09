@@ -8,16 +8,14 @@ import base64
 import time
 
 app = Flask(__name__)
-datastore_client = datastore.Client()
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Configure Memcache
+datastore_client = datastore.Client()
+# configure Memcache
 memcache_client = Client(('10.115.208.3', 11211))
-
-RELATED_QUERIES_KIND = "RelatedQueries"
 ttl = 300  # cache ttl (5 minutes)
+RELATED_QUERIES_KIND = "RelatedQueries"
 
 def get_group_id(query):
     hash_object = hashlib.sha256(query.encode())
@@ -41,20 +39,20 @@ def get_related_queries(query):
     logging.info(f"group_id: {group_id}")
 
     encoded_query = encode_key(query)
-    # Check Memcache first
+    # check memcache first
     cached_result = memcache_client.get(encoded_query)
     if cached_result:
         logging.info(f"Cache hit for query: {query}")
         return json.loads(cached_result)
 
-    # Fetch from Datastore if not in cache
+    # fetch from datastore if not in cache
     group = get_related_queries_group(group_id)
     if group:
         queries_dict = group.get('queries_dict')
         if queries_dict:
             related_queries = queries_dict.get(query, [])
 
-            # Store result in Memcache
+            # store result in Memcache
             memcache_client.set(encoded_query, json.dumps(related_queries), expire=ttl)
 
             return related_queries
@@ -78,5 +76,4 @@ def ping():
     return "pong"
 
 if __name__ == '__main__':
-    # app.run(host='0.0.0.0', port=8080)
     app.run(host='0.0.0.0', port=8080, threaded=True)

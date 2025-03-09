@@ -10,7 +10,7 @@ This project contains a load testing script for the `related` API endpoint. The 
    - The load test simulates user interactions with the `related` API endpoint by sending GET requests with different query parameters.
 
 2. **Tasks**:
-   - The script defines tasks for querying different types of search terms (e.g., "dress", "shoes", "nonexistentquery", "uniquequery").
+   - The script defines tasks for querying different types of search terms.
 
 3. **Execution**:
    - The script uses Locust to simulate multiple users performing these tasks concurrently, measuring response times, error rates, and throughput.
