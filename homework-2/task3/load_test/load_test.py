@@ -11,7 +11,7 @@ class UserBehavior(TaskSet):
 
     @task(1)
     def query_nonexistent(self):
-        self.client.get("/related?query=nonexistentquery")
+        self.client.get("/related?query=balck mini dresses")
 
     @task(1)
     def query_unique(self):
