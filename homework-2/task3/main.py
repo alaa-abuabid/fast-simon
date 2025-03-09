@@ -5,6 +5,7 @@ import hashlib
 from pymemcache.client.base import Client
 import json
 import base64
+import time
 
 app = Flask(__name__)
 datastore_client = datastore.Client()
@@ -61,11 +62,21 @@ def get_related_queries(query):
 
 @app.route('/related', methods=['GET'])
 def related():
+    start_time = time.time()
     query = request.args.get('query')
     if not query:
         return jsonify({'error': 'Query parameter is required'}), 400
     related_queries = get_related_queries(query)
+    end_time = time.time()
+    processing_time_ms = (end_time - start_time) * 1000
+    logging.info(f"processing_time: {int(processing_time_ms)} ms")
     return jsonify(related_queries)
 
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    return "pong"
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    # app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, threaded=True)

@@ -1,8 +1,18 @@
 runtime: python39
 service: task3
 
+instance_class: F4
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 5
+  target_cpu_utilization: 0.6
+  target_throughput_utilization: 0.75
+
 vpc_access_connector:
   name: "projects/charged-state-451616-h7/locations/europe-west1/connectors/my-connector"
+
+entrypoint: gunicorn -b :$PORT main:app
 
 handlers:
 - url: /.*

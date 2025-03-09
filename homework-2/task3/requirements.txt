@@ -1,4 +1,5 @@
 Flask==3.0.0
+gunicorn==20.1.0
 google-cloud-datastore==2.15.1
 pyfarmhash==0.4.0
 pymemcache==4.0.0
